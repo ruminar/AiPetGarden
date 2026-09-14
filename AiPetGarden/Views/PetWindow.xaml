@@ -1,0 +1,23 @@
+<Window x:Class="AiPetGarden.Views.PetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        ShowInTaskbar="False"
+        Topmost="True"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Grid ToolTip="左ドラッグで移動、右クリックで閉じる">
+        <Image x:Name="PetImage"
+               Stretch="None"
+               SnapsToDevicePixels="True"
+               UseLayoutRounding="True" />
+        <Grid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="閉じる" Click="CloseMenuItem_Click" />
+            </ContextMenu>
+        </Grid.ContextMenu>
+    </Grid>
+</Window>
