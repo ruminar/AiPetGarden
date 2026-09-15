@@ -1,0 +1,92 @@
+<Window x:Class="AiPetGarden.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ペット設定"
+        Width="620" Height="720" MinWidth="520" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="表示名" FontWeight="SemiBold" />
+                <TextBox x:Name="DisplayNameTextBox" Margin="0,5,0,14" />
+
+                <GroupBox Header="Persona" Margin="0,0,0,14">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="System Prompt" />
+                        <TextBox x:Name="SystemPromptTextBox" Margin="0,5,0,10" Height="120"
+                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                        <TextBlock Text="Greeting" />
+                        <TextBox x:Name="GreetingTextBox" Margin="0,5,0,0" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="ProjectRef" Margin="0,0,0,14">
+                    <Grid Margin="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="名前" VerticalAlignment="Center" />
+                        <TextBox x:Name="ProjectNameTextBox" Grid.Column="1" Margin="6,0,0,6" />
+                        <TextBlock Grid.Row="1" Text="URL" VerticalAlignment="Center" />
+                        <TextBox x:Name="ProjectUrlTextBox" Grid.Row="1" Grid.Column="1" Margin="6,0,0,0" />
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Chat Backend" Margin="0,0,0,14">
+                    <Grid Margin="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Type" VerticalAlignment="Center" />
+                        <ComboBox x:Name="BackendTypeComboBox" Grid.Column="1" Margin="6,0,0,6" IsEditable="True">
+                            <ComboBoxItem Content="Fake" />
+                            <ComboBoxItem Content="OpenAICompatible" />
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Text="Model" VerticalAlignment="Center" />
+                        <TextBox x:Name="ModelTextBox" Grid.Row="1" Grid.Column="1" Margin="6,0,0,0" />
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="表示とRelay">
+                    <Grid Margin="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox x:Name="RelayEnabledCheckBox" Content="Relayを受信する" />
+                        <CheckBox x:Name="TopMostCheckBox" Grid.Column="1" Content="常に手前へ表示" />
+                        <TextBlock Grid.Row="1" Text="Scale" Margin="0,10,0,0" VerticalAlignment="Center" />
+                        <TextBox x:Name="ScaleTextBox" Grid.Row="1" Grid.Column="1" Margin="0,8,0,0" />
+                    </Grid>
+                </GroupBox>
+
+                <TextBlock Margin="0,14,0,0" Foreground="DimGray" TextWrapping="Wrap"
+                           Text="APIキーはここへ保存しません。秘密情報の登録はSecretStore実装時に追加します。" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="1" Margin="0,16,0,0" LastChildFill="False" HorizontalAlignment="Right">
+            <Button Content="キャンセル" Width="90" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="保存" Width="90" IsDefault="True" Click="SaveButton_Click" />
+        </DockPanel>
+    </Grid>
+</Window>

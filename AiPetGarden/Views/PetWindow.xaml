@@ -9,14 +9,28 @@
         ShowInTaskbar="False"
         Topmost="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
-    <Grid ToolTip="左ドラッグで移動、右クリックで閉じる">
+    <Grid ToolTip="左ドラッグで移動、右クリックで状態変更">
         <Image x:Name="PetImage"
                Stretch="None"
                SnapsToDevicePixels="True"
                UseLayoutRounding="True" />
+        <TextBlock x:Name="SleepIndicator"
+                   Text="Zzz"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Foreground="#FF6A5ACD"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Margin="0,4,8,0"
+                   Visibility="Collapsed"
+                   IsHitTestVisible="False" />
         <Grid.ContextMenu>
             <ContextMenu>
-                <MenuItem Header="閉じる" Click="CloseMenuItem_Click" />
+                <MenuItem x:Name="WakeMenuItem" Header="起こす" Click="WakeMenuItem_Click" />
+                <MenuItem x:Name="SleepMenuItem" Header="寝かせる" Click="SleepMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="設定" Click="SettingsMenuItem_Click" />
+                <MenuItem Header="非表示" Click="HideMenuItem_Click" />
             </ContextMenu>
         </Grid.ContextMenu>
     </Grid>

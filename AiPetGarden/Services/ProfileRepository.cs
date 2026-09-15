@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AiPetGarden.Models;
 
 namespace AiPetGarden.Services;
@@ -10,7 +11,8 @@ public sealed class ProfileRepository
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     private readonly string _profilesDirectory;
@@ -26,6 +28,53 @@ public sealed class ProfileRepository
 
     public async Task<PetProfile?> LoadAsync(string petId, CancellationToken cancellationToken = default)
     {
+        return await LoadCoreAsync(petId, cancellationToken);
+    }
+
+    public async Task SaveAsync(PetProfile profile, CancellationToken cancellationToken = default)
+    {
+        ValidateProfile(profile);
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await WriteProfileAsync(profile, cancellationToken);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task SaveViewAsync(
+        string petId,
+        string petAssetId,
+        string displayName,
+        PetViewSettings view,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateView(view);
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            var profile = await LoadCoreAsync(petId, cancellationToken) ?? new PetProfile
+            {
+                PetId = petId,
+                PetAssetId = petAssetId,
+                DisplayName = displayName,
+                View = view
+            };
+            var updatedProfile = profile with { PetAssetId = petAssetId, View = view };
+            ValidateProfile(updatedProfile);
+            await WriteProfileAsync(updatedProfile, cancellationToken);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    private async Task<PetProfile?> LoadCoreAsync(string petId, CancellationToken cancellationToken)
+    {
         var profilePath = GetProfilePath(petId);
         if (!File.Exists(profilePath)) return null;
 
@@ -40,25 +89,18 @@ public sealed class ProfileRepository
             throw new InvalidDataException("The pet profile ID does not match its requested pet.");
         }
 
-        ValidateView(profile.View);
+        ValidateProfile(profile);
         return profile;
     }
 
-    public async Task SaveViewAsync(
-        string petId,
-        string petAssetId,
-        PetViewSettings view,
-        CancellationToken cancellationToken = default)
+    private async Task WriteProfileAsync(PetProfile profile, CancellationToken cancellationToken)
     {
-        ValidateView(view);
-        await _writeLock.WaitAsync(cancellationToken);
+        Directory.CreateDirectory(_profilesDirectory);
+        var profilePath = GetProfilePath(profile.PetId);
         string? temporaryPath = null;
         try
         {
-            Directory.CreateDirectory(_profilesDirectory);
-            var profilePath = GetProfilePath(petId);
             temporaryPath = profilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            var profile = new PetProfile(petId, petAssetId, view);
 
             await using (var stream = new FileStream(
                 temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
@@ -79,8 +121,6 @@ public sealed class ProfileRepository
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }
-
-            _writeLock.Release();
         }
     }
 
@@ -102,7 +142,10 @@ public sealed class ProfileRepository
 
     private static void ValidateView(PetViewSettings view)
     {
-        ArgumentNullException.ThrowIfNull(view);
+        if (view is null)
+        {
+            throw new InvalidDataException("The pet profile does not contain view settings.");
+        }
         if (!double.IsFinite(view.X) || !double.IsFinite(view.Y))
         {
             throw new InvalidDataException("Pet coordinates must be finite numbers.");
@@ -111,6 +154,32 @@ public sealed class ProfileRepository
         if (!double.IsFinite(view.Scale) || view.Scale <= 0)
         {
             throw new InvalidDataException("Pet scale must be a positive finite number.");
+        }
+
+        if (!Enum.IsDefined(view.LifeState))
+        {
+            throw new InvalidDataException("The pet life state is invalid.");
+        }
+    }
+
+    private static void ValidateProfile(PetProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (string.IsNullOrWhiteSpace(profile.PetId) || string.IsNullOrWhiteSpace(profile.PetAssetId))
+        {
+            throw new InvalidDataException("Pet profile IDs must not be empty.");
+        }
+        if (profile.ProjectRef is null || profile.Persona is null || profile.Backend is null || profile.Relay is null)
+        {
+            throw new InvalidDataException("The pet profile is missing required settings.");
+        }
+
+        ValidateView(profile.View);
+        if (!string.IsNullOrWhiteSpace(profile.ProjectRef.Url) &&
+            (!Uri.TryCreate(profile.ProjectRef.Url, UriKind.Absolute, out var projectUri) ||
+             projectUri.Scheme is not ("http" or "https")))
+        {
+            throw new InvalidDataException("Project URL must use http or https.");
         }
     }
 }

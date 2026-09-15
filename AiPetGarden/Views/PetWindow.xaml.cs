@@ -10,6 +10,10 @@ namespace AiPetGarden.Views;
 public partial class PetWindow : Window
 {
     public event EventHandler? PositionCommitted;
+    public event EventHandler? SettingsRequested;
+    public event EventHandler<PetLifeStateChangeRequestedEventArgs>? LifeStateChangeRequested;
+
+    public PetLifeState LifeState { get; private set; } = PetLifeState.Awake;
 
     public PetWindow(PetAsset asset)
     {
@@ -23,6 +27,7 @@ public partial class PetWindow : Window
         var scale = view?.Scale ?? 1.0;
         PetImage.LayoutTransform = new ScaleTransform(scale, scale);
         Topmost = view?.TopMost ?? true;
+        ApplyLifeState(view?.LifeState ?? PetLifeState.Awake);
         UpdateLayout();
 
         var windowWidth = Math.Max(ActualWidth, 1);
@@ -45,6 +50,30 @@ public partial class PetWindow : Window
         Left = Math.Clamp(view.X, minimumLeft, maximumLeft);
         Top = Math.Clamp(view.Y, minimumTop, maximumTop);
     }
+
+    public void ApplyLifeState(PetLifeState state)
+    {
+        if (state == PetLifeState.Hidden)
+        {
+            throw new ArgumentException("A hidden pet must not have an open window.", nameof(state));
+        }
+
+        LifeState = state;
+        var isSleeping = state == PetLifeState.Sleeping;
+        PetImage.Opacity = isSleeping ? 0.76 : 1.0;
+        SleepIndicator.Visibility = isSleeping ? Visibility.Visible : Visibility.Collapsed;
+        WakeMenuItem.Visibility = isSleeping ? Visibility.Visible : Visibility.Collapsed;
+        SleepMenuItem.Visibility = isSleeping ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public PetViewSettings CaptureView() => new(
+        LifeState,
+        Left,
+        Top,
+        PetImage.LayoutTransform is ScaleTransform scale ? scale.ScaleX : 1.0,
+        Topmost);
+
+    public void ApplyDisplayName(string displayName) => Title = displayName;
 
     private static BitmapSource LoadNeutralFrame(PetAsset asset)
     {
@@ -81,5 +110,20 @@ public partial class PetWindow : Window
         PositionCommitted?.Invoke(this, EventArgs.Empty);
     }
 
-    private void CloseMenuItem_Click(object sender, RoutedEventArgs e) => Close();
+    private void WakeMenuItem_Click(object sender, RoutedEventArgs e) =>
+        LifeStateChangeRequested?.Invoke(this, new PetLifeStateChangeRequestedEventArgs(PetLifeState.Awake));
+
+    private void SleepMenuItem_Click(object sender, RoutedEventArgs e) =>
+        LifeStateChangeRequested?.Invoke(this, new PetLifeStateChangeRequestedEventArgs(PetLifeState.Sleeping));
+
+    private void HideMenuItem_Click(object sender, RoutedEventArgs e) =>
+        LifeStateChangeRequested?.Invoke(this, new PetLifeStateChangeRequestedEventArgs(PetLifeState.Hidden));
+
+    private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) =>
+        SettingsRequested?.Invoke(this, EventArgs.Empty);
+}
+
+public sealed class PetLifeStateChangeRequestedEventArgs(PetLifeState requestedState) : EventArgs
+{
+    public PetLifeState RequestedState { get; } = requestedState;
 }
