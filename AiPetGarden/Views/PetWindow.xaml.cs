@@ -11,6 +11,7 @@ public partial class PetWindow : Window
 {
     public event EventHandler? PositionCommitted;
     public event EventHandler? SettingsRequested;
+    public event EventHandler? ChatRequested;
     public event EventHandler<PetLifeStateChangeRequestedEventArgs>? LifeStateChangeRequested;
 
     public PetLifeState LifeState { get; private set; } = PetLifeState.Awake;
@@ -75,6 +76,18 @@ public partial class PetWindow : Window
 
     public void ApplyDisplayName(string displayName) => Title = displayName;
 
+    public void ApplyActivityState(PetActivityState state)
+    {
+        ActivityTextBlock.Text = state switch
+        {
+            PetActivityState.Thinking => "考え中…",
+            PetActivityState.Talking => "お返事",
+            PetActivityState.Error => "エラー",
+            _ => ""
+        };
+        ActivityIndicator.Visibility = state == PetActivityState.Idle ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private static BitmapSource LoadNeutralFrame(PetAsset asset)
     {
         var definition = asset.SpriteDefinition
@@ -106,8 +119,18 @@ public partial class PetWindow : Window
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ButtonState != MouseButtonState.Pressed) return;
+        var originalLeft = Left;
+        var originalTop = Top;
         DragMove();
-        PositionCommitted?.Invoke(this, EventArgs.Empty);
+        var moved = Math.Abs(Left - originalLeft) >= 3 || Math.Abs(Top - originalTop) >= 3;
+        if (moved)
+        {
+            PositionCommitted?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            ChatRequested?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void WakeMenuItem_Click(object sender, RoutedEventArgs e) =>
@@ -121,6 +144,9 @@ public partial class PetWindow : Window
 
     private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) =>
         SettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    private void ChatMenuItem_Click(object sender, RoutedEventArgs e) =>
+        ChatRequested?.Invoke(this, EventArgs.Empty);
 }
 
 public sealed class PetLifeStateChangeRequestedEventArgs(PetLifeState requestedState) : EventArgs

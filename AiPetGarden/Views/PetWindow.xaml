@@ -24,10 +24,22 @@
                    Margin="0,4,8,0"
                    Visibility="Collapsed"
                    IsHitTestVisible="False" />
+        <Border x:Name="ActivityIndicator"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,8,8"
+                Padding="8,3"
+                CornerRadius="8"
+                Background="#CC333333"
+                Visibility="Collapsed"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="ActivityTextBlock" Foreground="White" FontWeight="Bold" />
+        </Border>
         <Grid.ContextMenu>
             <ContextMenu>
                 <MenuItem x:Name="WakeMenuItem" Header="起こす" Click="WakeMenuItem_Click" />
                 <MenuItem x:Name="SleepMenuItem" Header="寝かせる" Click="SleepMenuItem_Click" />
+                <MenuItem Header="話す" Click="ChatMenuItem_Click" />
                 <Separator />
                 <MenuItem Header="設定" Click="SettingsMenuItem_Click" />
                 <MenuItem Header="非表示" Click="HideMenuItem_Click" />

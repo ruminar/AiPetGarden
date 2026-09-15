@@ -1,6 +1,8 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using AiPetGarden.Chat;
 using AiPetGarden.Models;
 using AiPetGarden.Services;
 using AiPetGarden.ViewModels;
@@ -13,6 +15,8 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel = new();
     private readonly ProfileRepository _profileRepository = new();
     private readonly Dictionary<string, PetWindow> _petWindows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ChatService> _chatServices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ChatWindow> _chatWindows = new(StringComparer.OrdinalIgnoreCase);
 
     public MainWindow()
     {
@@ -110,10 +114,15 @@ public partial class MainWindow : Window
             petWindow.LifeStateChangeRequested += async (_, args) =>
                 await ChangePetLifeStateAsync(selected, args.RequestedState);
             petWindow.SettingsRequested += async (_, _) => await OpenSettingsAsync(selected);
+            petWindow.ChatRequested += async (_, _) => await OpenChatAsync(selected);
             _petWindows.Add(selected.MetadataPath, petWindow);
             petWindow.Show();
             var initialView = profile?.View is { } savedView ? savedView with { LifeState = lifeState } : null;
             petWindow.ApplyInitialView(initialView, _petWindows.Count - 1);
+            if (_chatServices.TryGetValue(selected.MetadataPath, out var currentChatService))
+            {
+                petWindow.ApplyActivityState(currentChatService.ActivityState);
+            }
             if (requestedState is not null) await SavePetViewAsync(selected, petWindow);
         }
         catch (Exception exception)
@@ -217,11 +226,98 @@ public partial class MainWindow : Window
                 petWindow.ApplyDisplayName(pet.DisplayName);
                 petWindow.ApplyInitialView(savedProfile.View, _petWindows.Values.ToList().IndexOf(petWindow));
             }
+            if (_chatServices.TryGetValue(pet.MetadataPath, out var chatService))
+            {
+                chatService.UpdateProfile(savedProfile);
+            }
+            if (_chatWindows.TryGetValue(pet.MetadataPath, out var chatWindow))
+            {
+                chatWindow.ApplyProfile(savedProfile);
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
             MessageBox.Show(this, $"ペット設定を保存できませんでした。\n\n{exception.Message}",
                 "設定エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async Task OpenChatAsync(PetAssetRowViewModel pet)
+    {
+        if (_chatWindows.TryGetValue(pet.MetadataPath, out var existingWindow))
+        {
+            if (existingWindow.WindowState == WindowState.Minimized) existingWindow.WindowState = WindowState.Normal;
+            existingWindow.Activate();
+            return;
+        }
+
+        try
+        {
+            var profile = await _profileRepository.LoadAsync(pet.AssetId);
+            if (profile is null)
+            {
+                var view = _petWindows.TryGetValue(pet.MetadataPath, out var petWindow)
+                    ? petWindow.CaptureView()
+                    : PetViewSettings.CreateDefault(0, 0) with { LifeState = pet.LifeState };
+                profile = PetProfile.CreateDefault(pet.Asset, view);
+            }
+
+            if (!_chatServices.TryGetValue(pet.MetadataPath, out var chatService))
+            {
+                chatService = new ChatService(profile);
+                chatService.ActivityStateChanged += state => Dispatcher.InvokeAsync(() =>
+                {
+                    if (_petWindows.TryGetValue(pet.MetadataPath, out var window))
+                    {
+                        window.ApplyActivityState(state);
+                    }
+                });
+                _chatServices.Add(pet.MetadataPath, chatService);
+            }
+            else
+            {
+                chatService.UpdateProfile(profile);
+            }
+
+            var chatWindow = new ChatWindow(chatService) { Owner = this };
+            chatWindow.Closed += (_, _) => _chatWindows.Remove(pet.MetadataPath);
+            chatWindow.SettingsRequested += async (_, _) => await OpenSettingsAsync(pet);
+            chatWindow.ProjectRequested += async (_, _) => await OpenProjectAsync(pet);
+            _chatWindows.Add(pet.MetadataPath, chatWindow);
+            chatWindow.Show();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            MessageBox.Show(this, $"チャットを開けませんでした。\n\n{exception.Message}",
+                "チャットエラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async Task OpenProjectAsync(PetAssetRowViewModel pet)
+    {
+        try
+        {
+            var profile = _chatServices.TryGetValue(pet.MetadataPath, out var chatService)
+                ? chatService.Profile
+                : await _profileRepository.LoadAsync(pet.AssetId);
+            var url = profile?.ProjectRef.Url;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                MessageBox.Show(this, "Project URLが設定されていません。", "Projectを開く",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            {
+                throw new InvalidDataException("Project URL must use http or https.");
+            }
+
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            MessageBox.Show(this, $"Projectを開けませんでした。\n\n{exception.Message}",
+                "Projectエラー", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }
